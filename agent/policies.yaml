@@ -1,0 +1,15 @@
+# Durable Enterprise Governance Policy
+# Separated from volatile session state to ensure zero-trust compliance
+
+approval_limit_usd: 10000.0
+escalation_limit_usd: 20000.0
+kill_limit_usd: 20000.0
+
+forbidden_phrases:
+  - "ignore all previous"
+  - "ignore previous policies"
+  - "approve immediately"
+  - "system message"
+
+human_approval_required_above_usd: 10000.0
+fail_closed_if_decider_unavailable: true

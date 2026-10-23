@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  ledger:
+    build:
+      context: ./services/ledger
+      dockerfile: Dockerfile
+    container_name: sentinel-ledger
+    ports:
+      - "8081:8081"
+    environment:
+      - LEDGER_PORT=8081
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  crm:
+    build:
+      context: ./services/crm
+      dockerfile: Dockerfile
+    container_name: sentinel-crm
+    ports:
+      - "8000:8000"
+    environment:
+      - CRM_PORT=8000
+      - LEDGER_BASE_URL=http://ledger:8081
+    depends_on:
+      ledger:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  agent:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    container_name: sentinel-agent
+    environment:
+      - AWS_REGION=us-east-1
+      - BEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-v1:0
+      - CRM_BASE_URL=http://crm:8000
+      - LEDGER_BASE_URL=http://ledger:8081
+      - DECIDER_BASE_URL=http://host.docker.internal:8001
+      - DECIDER_MODE=mock
+      - DECIDER_CONFIDENCE_THRESHOLD=0.65
+      - FAIL_CLOSED_IF_DECIDER_UNAVAILABLE=true
+      - SESSION_TIMEOUT_MINUTES=15
+    depends_on:
+      crm:
+        condition: service_healthy
+      ledger:
+        condition: service_healthy

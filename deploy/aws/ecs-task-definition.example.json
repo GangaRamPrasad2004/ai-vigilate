@@ -1,0 +1,91 @@
+{
+  "family": "strands-sentinel",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::123456789012:role/StrandsSentinelTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "sentinel-ledger",
+      "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/sentinel-ledger:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8081,
+          "hostPort": 8081,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {"name": "LEDGER_PORT", "value": "8081"}
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/strands-sentinel",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ledger"
+        }
+      }
+    },
+    {
+      "name": "sentinel-crm",
+      "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/sentinel-crm:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "hostPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {"name": "CRM_PORT", "value": "8000"},
+        {"name": "LEDGER_BASE_URL", "value": "http://localhost:8081"}
+      ],
+      "dependsOn": [
+        {
+          "containerName": "sentinel-ledger",
+          "condition": "START"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/strands-sentinel",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "crm"
+        }
+      }
+    },
+    {
+      "name": "sentinel-agent",
+      "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/sentinel-agent:latest",
+      "essential": false,
+      "environment": [
+        {"name": "AWS_REGION", "value": "us-east-1"},
+        {"name": "BEDROCK_MODEL_ID", "value": "anthropic.claude-3-5-sonnet-v1:0"},
+        {"name": "CRM_BASE_URL", "value": "http://localhost:8000"},
+        {"name": "LEDGER_BASE_URL", "value": "http://localhost:8081"},
+        {"name": "DECIDER_MODE", "value": "mock"},
+        {"name": "DECIDER_CONFIDENCE_THRESHOLD", "value": "0.65"}
+      ],
+      "dependsOn": [
+        {
+          "containerName": "sentinel-crm",
+          "condition": "START"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/strands-sentinel",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "agent"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,135 @@
+# ==============================================================================
+# NVIDIA OpenShell Sandbox Security Policy for Strands Sentinel
+# ==============================================================================
+# OpenShell provides hardware-enforced and OS-level container isolation
+# for the Python agent harness, preventing ambient privilege escalation,
+# untrusted filesystem writes, and unconstrained network egress.
+# ==============================================================================
+
+[sandbox]
+name = "strands-sentinel-agent-sandbox"
+version = "1.0.0"
+runtime = "openshell-v1"
+description = "Strict zero-trust containment for the Strands Sentinel agent harness"
+
+# Resource Limits
+[sandbox.resources]
+max_cpu_cores = 2
+max_memory_mb = 1024
+max_execution_time_seconds = 300
+allow_gpu_passthrough = false
+
+# ==============================================================================
+# Pillar 3 - Network Egress Rules
+# ==============================================================================
+# Default policy: DENY ALL. Only whitelisted endpoints are accessible.
+[network]
+default_egress = "deny"
+dns_resolution = "restricted"
+
+# Allow local enterprise services
+[[network.allow_egress]]
+destination = "127.0.0.1:8000"
+protocol = "tcp"
+description = "FastAPI Enterprise Legacy CRM"
+
+[[network.allow_egress]]
+destination = "localhost:8000"
+protocol = "tcp"
+description = "FastAPI Enterprise Legacy CRM (hostname)"
+
+[[network.allow_egress]]
+destination = "127.0.0.1:8081"
+protocol = "tcp"
+description = "Go Immutable Audit Ledger and Systemic Kill Switch"
+
+[[network.allow_egress]]
+destination = "localhost:8081"
+protocol = "tcp"
+description = "Go Immutable Audit Ledger and Systemic Kill Switch (hostname)"
+
+[[network.allow_egress]]
+destination = "127.0.0.1:8001"
+protocol = "tcp"
+description = "Strands Decider 2B Local Model Server"
+
+[[network.allow_egress]]
+destination = "localhost:8001"
+protocol = "tcp"
+description = "Strands Decider 2B Local Model Server (hostname)"
+
+# Allow AWS Bedrock foundation model endpoints
+[[network.allow_egress]]
+destination = "*.bedrock.*.amazonaws.com:443"
+protocol = "tls"
+description = "Amazon Bedrock API for Claude 3.5 Sonnet generative planning"
+
+[[network.allow_egress]]
+destination = "bedrock-runtime.*.amazonaws.com:443"
+protocol = "tls"
+description = "Amazon Bedrock Runtime endpoint"
+
+# Allow NVIDIA NIM microservice endpoint for Vision/OCR tool acceleration
+[[network.allow_egress]]
+destination = "integrate.api.nvidia.com:443"
+protocol = "tls"
+description = "NVIDIA NIM Inference Microservice (build.nvidia.com)"
+
+# ==============================================================================
+# Pillar 3 - Filesystem Access Rules
+# ==============================================================================
+# Host OS protection: Agent process cannot write to host directories.
+[filesystem]
+default_mode = "deny"
+root_filesystem = "read-only"
+
+# Read-only policy and code access
+[[filesystem.mounts]]
+host_path = "./agent/policies.yaml"
+sandbox_path = "/app/agent/policies.yaml"
+mode = "ro"
+description = "Durable enterprise governance rules (IMMUTABLE)"
+
+[[filesystem.mounts]]
+host_path = "./agent"
+sandbox_path = "/app/agent"
+mode = "ro"
+description = "Agent source code"
+
+[[filesystem.mounts]]
+host_path = "./knowledge"
+sandbox_path = "/app/knowledge"
+mode = "ro"
+description = "Vendor risk vector knowledge files"
+
+# Volatile scratchpad (isolated in RAM, discarded on exit)
+[[filesystem.mounts]]
+type = "tmpfs"
+sandbox_path = "/tmp"
+mode = "rw"
+max_size_mb = 64
+description = "Ephemeral volatile session workspace"
+
+# ==============================================================================
+# Pillar 3 - Credential Stripping & Sidecar Secret Injection
+# ==============================================================================
+# Problem: Agents must never read raw IAM secret keys or long-lived API tokens
+# from disk or ambient process environment variables.
+# Solution: OpenShell credential stripping masks host secrets and uses an
+# authenticated unix domain socket sidecar for AWS SigV4 request signing.
+[security.credentials]
+strip_host_environment = true
+masked_variables = [
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
+    "NVIDIA_API_KEY",
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY"
+]
+
+# Sidecar-mediated authorization: The sandbox exposes an IAM credential proxy socket
+[security.credentials.sidecar_proxy]
+enabled = true
+socket_path = "/run/openshell/sigv4.sock"
+target_service = "bedrock"
+auto_refresh_tokens = true
