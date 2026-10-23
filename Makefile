@@ -36,12 +36,6 @@ help:
 	@echo "  make docker-up     Start container stack with Docker Compose"
 	@echo "  make docker-down   Stop and remove Docker Compose containers"
 	@echo ""
-	@echo "Hackathon Documentation:"
-	@echo "  make article       View AWS Builder Center article draft"
-	@echo "  make pattern       View reusable Guardrail Before Tool Call pattern"
-	@echo "  make video-script  View 3-minute video presentation script"
-	@echo "  make arch          View architecture specification and threat model"
-	@echo "=================================================================="
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -114,14 +108,4 @@ docker-up:
 docker-down:
 	docker-compose down
 
-article:
-	@$(PYTHON) -c "print(open('docs/hackathon-article.md', encoding='utf-8').read())"
 
-pattern:
-	@$(PYTHON) -c "print(open('patterns/guardrail-before-tool.md', encoding='utf-8').read())"
-
-video-script:
-	@$(PYTHON) -c "print(open('docs/demo-video-script.md', encoding='utf-8').read())"
-
-arch:
-	@$(PYTHON) -c "print(open('docs/architecture.md', encoding='utf-8').read())"
